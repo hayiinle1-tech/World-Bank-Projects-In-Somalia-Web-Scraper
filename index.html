@@ -25,6 +25,18 @@
   .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
   .controls input,.controls select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;max-width:100%}
   .controls input[type=search]{flex:1;min-width:220px}
+  .filters{background:var(--card);border-radius:12px;box-shadow:0 2px 10px rgba(20,33,61,.06);padding:14px;margin-bottom:12px}
+  .filters .controls:last-child{margin-bottom:0}
+  .filters label{font-size:12px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+  .daterow{align-items:flex-end}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink)}
+  .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .hint{font-size:12px;color:var(--muted);margin:-4px 0 10px}
+  .hint code{background:#eef2f8;padding:1px 5px;border-radius:4px}
+  .active-filters{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .link{background:none;border:0;color:var(--blue-d);cursor:pointer;text-decoration:underline;font-size:13px;padding:0}
+  mark{background:#fff3b0;color:inherit;padding:0 1px;border-radius:2px}
   .btn{padding:9px 14px;border:1px solid var(--blue);background:#fff;color:var(--blue-d);border-radius:8px;font-weight:600;cursor:pointer}
   .btn:hover:not(:disabled){background:var(--blue);color:#fff}
   .btn:disabled{opacity:.4;cursor:default}
@@ -73,12 +85,31 @@
     <button class="tab" data-tab="notices">Tenders &amp; notices <span class="n" id="n-notices">0</span></button>
     <button class="tab" data-tab="news">News &amp; signals <span class="n" id="n-news">0</span></button>
   </nav>
-  <div class="controls">
-    <input type="search" id="q" placeholder="Search title, ID, funder, agency, reference…">
-    <select id="f1"></select>
-    <select id="f2"></select>
-    <button class="btn" id="csv">Download CSV</button>
-  </div>
+  <section class="filters">
+    <div class="controls">
+      <input type="search" id="q" placeholder='Keywords, e.g.  water Baidoa   "solar energy"   health OR nutrition   -closed'>
+      <select id="scope" title="Where to search">
+        <option value="title">Search in titles</option>
+        <option value="text">Titles + descriptions</option>
+        <option value="all">Every field</option>
+      </select>
+    </div>
+    <div class="hint">Several words = all must match · <code>"exact phrase"</code> · <code>water OR sanitation</code> · <code>-word</code> to exclude</div>
+    <div class="controls daterow">
+      <label>Date
+        <select id="dfield"></select></label>
+      <label>From <input type="date" id="dfrom"></label>
+      <label>To <input type="date" id="dto"></label>
+      <div class="chips" id="presets"></div>
+    </div>
+    <div class="controls">
+      <select id="f1"></select>
+      <select id="f2"></select>
+      <div class="active-filters"><span id="fsummary"></span><button class="link" id="clear">Clear all filters</button></div>
+      <span style="flex:1"></span>
+      <button class="btn" id="csv">Download CSV</button>
+    </div>
+  </section>
   <div class="card">
     <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
     <div class="pager" id="pager"></div>
@@ -94,7 +125,7 @@
 
 <script>
 const PAGE = 25;
-const state = { tab: "projects", q: "", f1: "", f2: "", sort: null, asc: false, page: 0, open: null };
+const state = { tab: "projects", q: "", scope: "text", dfield: "", dfrom: "", dto: "", preset: "", f1: "", f2: "", sort: null, asc: false, page: 0, open: null };
 const data = { projects: [], notices: [], news: [], meta: {} };
 const today = new Date().toISOString().slice(0, 10);
 const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
@@ -108,6 +139,72 @@ const cls = (s) => "p-" + String(s || "unknown").toLowerCase().replace(/[^a-z]/g
 const isNew = (n) => n.first_seen && n.first_seen >= yesterday;
 const srcNames = (r) => [...new Set((r.sources || []).map(s => s.source))];
 
+/* ---------- keyword search ----------
+   water baidoa        → both words must appear
+   "solar energy"      → exact phrase
+   health OR nutrition → either word
+   -closed             → exclude                                  */
+function parseQuery(q) {
+  const tokens = (q.toLowerCase().match(/-?"[^"]+"|\S+/g) || []).map(t => t.replace(/"/g, ""));
+  const groups = [], exclude = [];
+  for (let i = 0; i < tokens.length; i++) {
+    let t = tokens[i];
+    if (t === "or") continue;
+    if (t.startsWith("-") && t.length > 1) { exclude.push(t.slice(1)); continue; }
+    if (tokens[i - 1] === "or" && groups.length) groups[groups.length - 1].push(t);
+    else groups.push([t]);
+  }
+  return { groups: groups.filter(g => g.every(Boolean)), exclude };
+}
+const searchCache = new WeakMap();
+function haystack(r) {
+  const key = state.scope;
+  let c = searchCache.get(r); if (!c) searchCache.set(r, c = {});
+  if (c[key] === undefined) {
+    const parts = key === "all" ? [JSON.stringify(r)]
+      : [r.title, r.id, r.reference, r.project_name, r.publisher, (r.funders || []).join(" "), r.organization,
+         ...(key === "text" ? [r.description, r.summary, (r.sectors || []).join(" "), (r.sources || []).map(s => s.title).join(" ")] : [])];
+    c[key] = parts.filter(Boolean).join(" \u0001 ").toLowerCase();
+  }
+  return c[key];
+}
+function matchesQuery(r, pq) {
+  if (!pq.groups.length && !pq.exclude.length) return true;
+  const h = haystack(r);
+  return pq.groups.every(g => g.some(t => h.includes(t))) && !pq.exclude.some(t => h.includes(t));
+}
+let HL = null;
+function hl(text) {  // escape, then highlight search terms
+  const s = esc(text);
+  return HL ? s.replace(HL, "<mark>$1</mark>") : s;
+}
+function buildHighlighter() {
+  const terms = parseQuery(state.q).groups.flat().filter(t => t.length > 1).map(t => esc(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  HL = terms.length ? new RegExp(`(${terms.sort((a, b) => b.length - a.length).join("|")})`, "gi") : null;
+}
+
+/* ---------- date filter ---------- */
+const DATE_FIELDS = {
+  projects: [["start", "Start / approval date"], ["end", "End / closing date"]],
+  notices: [["published", "Published date"], ["deadline", "Deadline"], ["first_seen", "First seen by tracker"]],
+  news: [["published", "Published date"]],
+};
+const PRESETS = [["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 3 months"], ["365", "Last 12 months"], ["year", "This year"], ["next30", "Next 30 days"]];
+const shift = (days) => new Date(Date.now() + days * 864e5).toISOString().slice(0, 10);
+function applyPreset(p) {
+  state.preset = p;
+  if (!p) { state.dfrom = state.dto = ""; }
+  else if (p === "year") { state.dfrom = today.slice(0, 4) + "-01-01"; state.dto = today.slice(0, 4) + "-12-31"; }
+  else if (p === "next30") { state.dfrom = today; state.dto = shift(30); }
+  else { state.dfrom = shift(-Number(p)); state.dto = today; }
+}
+function inDateRange(r) {
+  if (!state.dfrom && !state.dto) return true;
+  const d = r[state.dfield];
+  if (!d) return false;
+  return (!state.dfrom || d >= state.dfrom) && (!state.dto || d <= state.dto);
+}
+
 function deadlineState(n) {
   if (!n.deadline) return "none";
   const d = daysLeft(n.deadline);
@@ -117,7 +214,7 @@ function deadlineState(n) {
 const COLS = {
   projects: [
     { k: "title", label: "Project", get: p => p.title,
-      html: p => `<div class="name">${esc(p.title)}</div><div class="sub">${esc(p.id)}${p.source_count > 1 ? ` · <span class="pill p-src">merged from ${p.source_count} records</span>` : ""}</div>` },
+      html: p => `<div class="name">${hl(p.title)}</div><div class="sub">${hl(p.id)}${p.source_count > 1 ? ` · <span class="pill p-src">merged from ${p.source_count} records</span>` : ""}</div>` },
     { k: "status", label: "Status", get: p => p.status, html: p => `<span class="pill ${cls(p.status)}">${esc(p.status)}</span>` },
     { k: "funders", label: "Funders / reporters", get: p => (p.funders || []).join(", "),
       html: p => esc((p.funders || []).slice(0, 3).join(", ") + ((p.funders || []).length > 3 ? ` +${p.funders.length - 3}` : "") || "—") },
@@ -127,7 +224,7 @@ const COLS = {
   ],
   notices: [
     { k: "title", label: "Notice", get: n => n.title,
-      html: n => `<div class="name">${isNew(n) ? '<span class="pill p-new">NEW</span> ' : ""}${esc(n.title || n.reference)}</div><div class="sub">${esc([n.reference, n.project_name].filter(Boolean).join(" · "))}</div>` },
+      html: n => `<div class="name">${isNew(n) ? '<span class="pill p-new">NEW</span> ' : ""}${hl(n.title || n.reference)}</div><div class="sub">${hl([n.reference, n.project_name].filter(Boolean).join(" · "))}</div>` },
     { k: "type", label: "Type", get: n => n.type, html: n => esc(n.type || "—") },
     { k: "published", label: "Published", get: n => n.published || "", html: n => fmtDate(n.published) },
     { k: "deadline", label: "Deadline", get: n => n.deadline || "",
@@ -139,7 +236,7 @@ const COLS = {
   ],
   news: [
     { k: "title", label: "Headline", get: n => n.title,
-      html: n => `<div class="name">${esc(n.title)}</div><div class="sub">${esc(n.summary || "")}</div>` },
+      html: n => `<div class="name">${hl(n.title)}</div><div class="sub">${hl(n.summary || "")}</div>` },
     { k: "publisher", label: "Publisher", get: n => n.publisher,
       html: n => esc(n.publisher) + (n.also_reported_by?.length ? `<div class="sub">+${n.also_reported_by.length} more outlets</div>` : "") },
     { k: "published", label: "Date", get: n => n.published || "", html: n => fmtDate(n.published) },
@@ -163,12 +260,25 @@ function setupFilters() {
     f2.style.display = "none";
   }
   f1.value = state.f1; f2.value = state.f2;
+  const fields = DATE_FIELDS[state.tab];
+  if (!fields.some(([k]) => k === state.dfield)) state.dfield = fields[0][0];
+  $("#dfield").innerHTML = fields.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+  $("#dfield").value = state.dfield;
+  syncControls();
+}
+
+function syncControls() {
+  $("#q").value = state.q; $("#scope").value = state.scope;
+  $("#dfrom").value = state.dfrom; $("#dto").value = state.dto;
+  $("#presets").innerHTML = [["", "Any time"], ...PRESETS].map(([k, l]) =>
+    `<button class="chip ${state.preset === k && (k || !state.dfrom && !state.dto) ? "on" : ""}" data-p="${k}">${l}</button>`).join("");
 }
 
 function filtered() {
-  const q = state.q.toLowerCase().trim();
+  const pq = parseQuery(state.q);
   let rows = data[state.tab].filter(r => {
-    if (q && !JSON.stringify(r).toLowerCase().includes(q)) return false;
+    if (!matchesQuery(r, pq)) return false;
+    if (!inDateRange(r)) return false;
     if (state.tab === "projects") {
       if (state.f1 && r.status !== state.f1) return false;
       if (state.f2 && !(r.funders || []).includes(state.f2)) return false;
@@ -238,7 +348,10 @@ function detailHTML(r) {
 function render() {
   const cols = COLS[state.tab];
   $("#thead").innerHTML = "<tr>" + cols.map(c => `<th data-k="${c.k}" class="${state.sort === c.k ? "sorted" + (state.asc ? " asc" : "") : ""}" ${c.num ? 'style="text-align:right"' : ""}>${c.label}</th>`).join("") + "</tr>";
+  buildHighlighter();
   const rows = filtered();
+  renderSummary(rows.length);
+  saveToURL();
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   state.page = Math.min(state.page, pages - 1);
   const slice = rows.slice(state.page * PAGE, state.page * PAGE + PAGE);
@@ -252,6 +365,37 @@ function render() {
     <button class="btn" id="next" ${state.page >= pages - 1 ? "disabled" : ""}>Next ›</button></span>`;
   $("#prev").onclick = () => { state.page--; render(); };
   $("#next").onclick = () => { state.page++; render(); };
+}
+
+function renderSummary(count) {
+  const parts = [];
+  if (state.q.trim()) parts.push(`keywords “${esc(state.q.trim())}”`);
+  if (state.dfrom || state.dto) {
+    const label = (DATE_FIELDS[state.tab].find(([k]) => k === state.dfield) || [, "date"])[1].toLowerCase();
+    parts.push(`${label} ${state.dfrom ? "from " + fmtDate(state.dfrom) : ""} ${state.dto ? "to " + fmtDate(state.dto) : ""}`);
+  }
+  if (state.f1) parts.push(esc($("#f1").selectedOptions[0]?.text || state.f1));
+  if (state.f2) parts.push(esc(state.f2));
+  $("#fsummary").innerHTML = parts.length ? `<b>${count.toLocaleString()}</b> match: ${parts.join(" · ")}` : "";
+  $("#clear").style.display = parts.length ? "" : "none";
+}
+
+/* filters live in the address bar, so a filtered view can be bookmarked or shared */
+function saveToURL() {
+  const p = new URLSearchParams();
+  for (const k of ["tab", "q", "scope", "dfield", "dfrom", "dto", "preset", "f1", "f2"]) {
+    if (state[k] && !(k === "tab" && state[k] === "projects") && !(k === "scope" && state[k] === "text")) p.set(k, state[k]);
+  }
+  const h = p.toString();
+  if (location.hash.slice(1) !== h) history.replaceState(null, "", h ? "#" + h : location.pathname + location.search);
+}
+function loadFromURL() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  for (const k of ["tab", "q", "scope", "dfield", "dfrom", "dto", "preset", "f1", "f2"]) if (p.has(k)) state[k] = p.get(k);
+  if (!COLS[state.tab]) state.tab = "projects";
+  if (state.preset) applyPreset(state.preset);  // "last 30 days" stays relative to today
+  if (state.tab !== "projects") state.sort = "published";
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.dataset.tab === state.tab));
 }
 
 function downloadCSV() {
@@ -271,7 +415,18 @@ document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
   Object.assign(state, { tab: t.dataset.tab, f1: "", f2: "", sort: t.dataset.tab === "projects" ? null : "published", asc: false, page: 0, open: null });
   setupFilters(); render();
 });
-$("#q").oninput = (e) => { state.q = e.target.value; state.page = 0; render(); };
+let qTimer;
+$("#q").oninput = (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; state.page = 0; render(); }, 150); };
+$("#scope").onchange = (e) => { state.scope = e.target.value; state.page = 0; render(); };
+$("#dfield").onchange = (e) => { state.dfield = e.target.value; state.page = 0; render(); };
+$("#dfrom").onchange = (e) => { state.dfrom = e.target.value; state.preset = ""; state.page = 0; syncControls(); render(); };
+$("#dto").onchange = (e) => { state.dto = e.target.value; state.preset = ""; state.page = 0; syncControls(); render(); };
+$("#presets").onclick = (e) => { const b = e.target.closest(".chip"); if (!b) return;
+  applyPreset(b.dataset.p);
+  if (b.dataset.p === "next30" && state.tab === "notices") state.dfield = "deadline";  // upcoming deadlines
+  $("#dfield").value = state.dfield; state.page = 0; syncControls(); render(); };
+$("#clear").onclick = () => { Object.assign(state, { q: "", dfrom: "", dto: "", preset: "", f1: "", f2: "", page: 0 });
+  $("#f1").value = ""; $("#f2").value = ""; syncControls(); render(); };
 $("#f1").onchange = (e) => { state.f1 = e.target.value; state.page = 0; render(); };
 $("#f2").onchange = (e) => { state.f2 = e.target.value; state.page = 0; render(); };
 $("#csv").onclick = downloadCSV;
@@ -285,7 +440,7 @@ async function load(name, fallback) {
 }
 (async () => {
   [data.projects, data.notices, data.news, data.meta] = await Promise.all([load("projects", []), load("notices", []), load("news", []), load("meta", {})]);
-  renderStats(); setupFilters(); render();
+  loadFromURL(); renderStats(); setupFilters(); render();
 })();
 </script>
 </body>
