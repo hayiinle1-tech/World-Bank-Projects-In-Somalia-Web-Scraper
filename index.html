@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Somalia Projects & Tenders Tracker</title>
+<meta name="description" content="Development projects and tenders in Somalia from the World Bank, AfDB, UN agencies, donors and the wider web — merged, de-duplicated and refreshed every 6 hours.">
+<style>
+  :root{--blue:#4189DD;--blue-d:#1f5fa8;--ink:#14213d;--muted:#5b6475;--line:#e3e8ef;--bg:#f5f7fb;--card:#fff;--green:#1a8f5a;--amber:#b7791f;--red:#c0392b}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+  a{color:var(--blue-d)}
+  header{background:linear-gradient(135deg,var(--blue-d),var(--blue));color:#fff;padding:28px 0 70px}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+  header h1{margin:0 0 6px;font-size:26px;display:flex;align-items:center;gap:10px}
+  header p{margin:0;opacity:.92}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-top:-48px}
+  .stat{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 2px 10px rgba(20,33,61,.08)}
+  .stat .v{font-size:25px;font-weight:700}
+  .stat .l{color:var(--muted);font-size:13px}
+  .tabs{display:flex;gap:6px;margin:26px 0 12px;border-bottom:1px solid var(--line);overflow-x:auto}
+  .tab{background:none;border:0;padding:10px 16px;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  .tab.on{color:var(--blue-d);border-color:var(--blue)}
+  .tab .n{background:var(--line);border-radius:10px;padding:1px 8px;font-size:12px;margin-left:4px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .controls input,.controls select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;max-width:100%}
+  .controls input[type=search]{flex:1;min-width:220px}
+  .btn{padding:9px 14px;border:1px solid var(--blue);background:#fff;color:var(--blue-d);border-radius:8px;font-weight:600;cursor:pointer}
+  .btn:hover:not(:disabled){background:var(--blue);color:#fff}
+  .btn:disabled{opacity:.4;cursor:default}
+  .card{background:var(--card);border-radius:12px;box-shadow:0 2px 10px rgba(20,33,61,.06);overflow:auto}
+  table{width:100%;border-collapse:collapse;min-width:820px}
+  th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#fafbfd;cursor:pointer;user-select:none;white-space:nowrap}
+  th.sorted::after{content:" ▾"} th.sorted.asc::after{content:" ▴"}
+  tr.row{cursor:pointer} tr.row:hover td{background:#f8fbff}
+  td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .name{font-weight:600}
+  .sub{color:var(--muted);font-size:13px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;margin:1px 2px 1px 0}
+  .p-active,.p-open{background:#e3f5ec;color:var(--green)}
+  .p-closed,.p-past,.p-cancelled,.p-finalisation,.p-unknown{background:#eef0f3;color:var(--muted)}
+  .p-pipeline,.p-soon{background:#fdf3e1;color:var(--amber)}
+  .p-dropped,.p-suspended{background:#fbe9e7;color:var(--red)}
+  .p-new{background:var(--red);color:#fff}
+  .p-src{background:#e8f0fb;color:var(--blue-d)}
+  .detail td{background:#fbfcfe}
+  .detail dl{display:grid;grid-template-columns:170px 1fr;gap:6px 14px;margin:4px 0 10px}
+  .detail dt{color:var(--muted)} .detail dd{margin:0}
+  .detail ul{margin:4px 0 0;padding-left:18px}
+  .pager{display:flex;justify-content:space-between;align-items:center;padding:12px;color:var(--muted);font-size:14px;flex-wrap:wrap;gap:8px}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  footer.wrap{color:var(--muted);font-size:13px;padding-top:28px;padding-bottom:40px}
+  .srcs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .srcs span{background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  .ok{color:var(--green)} .bad{color:var(--red)}
+  @media (max-width:600px){header h1{font-size:21px}.detail dl{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7.3L12 17.8 5.8 21.5l1.6-7.3L2 9.5l7.1-.6z"/></svg>
+      Somalia Projects &amp; Tenders Tracker</h1>
+    <p>World Bank, AfDB, UN agencies, donors, NGOs and the wider web — duplicates merged into one record, refreshed every 6 hours. <span id="updated"></span></p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="stats" id="stats"></section>
+  <nav class="tabs">
+    <button class="tab on" data-tab="projects">Projects <span class="n" id="n-projects">0</span></button>
+    <button class="tab" data-tab="notices">Tenders &amp; notices <span class="n" id="n-notices">0</span></button>
+    <button class="tab" data-tab="news">News &amp; signals <span class="n" id="n-news">0</span></button>
+  </nav>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Search title, ID, funder, agency, reference…">
+    <select id="f1"></select>
+    <select id="f2"></select>
+    <button class="btn" id="csv">Download CSV</button>
+  </div>
+  <div class="card">
+    <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+<footer class="wrap">
+  <strong>Sources in the last run</strong>
+  <div class="srcs" id="srcs"></div>
+  Data: World Bank Search API · IATI via D-Portal (AfDB, UN agencies, EU, USAID, FCDO, bilateral donors, NGOs) · AfDB procurement feed · Google News · optional ReliefWeb.
+  Unofficial tracker — always confirm details on the original notice before bidding.
+</footer>
+
+<script>
+const PAGE = 25;
+const state = { tab: "projects", q: "", f1: "", f2: "", sort: null, asc: false, page: 0, open: null };
+const data = { projects: [], notices: [], news: [], meta: {} };
+const today = new Date().toISOString().slice(0, 10);
+const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const money = (n) => !n ? "—" : n >= 1e9 ? `$${(n/1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n/1e6).toFixed(1)}M` : `$${Math.round(n).toLocaleString()}`;
+const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+const daysLeft = (d) => Math.ceil((new Date(d + "T23:59:59") - new Date()) / 864e5);
+const cls = (s) => "p-" + String(s || "unknown").toLowerCase().replace(/[^a-z]/g, "");
+const isNew = (n) => n.first_seen && n.first_seen >= yesterday;
+const srcNames = (r) => [...new Set((r.sources || []).map(s => s.source))];
+
+function deadlineState(n) {
+  if (!n.deadline) return "none";
+  const d = daysLeft(n.deadline);
+  return d < 0 ? "past" : d <= 7 ? "soon" : "open";
+}
+
+const COLS = {
+  projects: [
+    { k: "title", label: "Project", get: p => p.title,
+      html: p => `<div class="name">${esc(p.title)}</div><div class="sub">${esc(p.id)}${p.source_count > 1 ? ` · <span class="pill p-src">merged from ${p.source_count} records</span>` : ""}</div>` },
+    { k: "status", label: "Status", get: p => p.status, html: p => `<span class="pill ${cls(p.status)}">${esc(p.status)}</span>` },
+    { k: "funders", label: "Funders / reporters", get: p => (p.funders || []).join(", "),
+      html: p => esc((p.funders || []).slice(0, 3).join(", ") + ((p.funders || []).length > 3 ? ` +${p.funders.length - 3}` : "") || "—") },
+    { k: "start", label: "Start", get: p => p.start || "", html: p => fmtDate(p.start) },
+    { k: "notice_count", label: "Tenders", num: true, get: p => p.notice_count || 0, html: p => p.notice_count || "—" },
+    { k: "commitment_usd", label: "Commitment", num: true, get: p => p.commitment_usd || 0, html: p => money(p.commitment_usd) },
+  ],
+  notices: [
+    { k: "title", label: "Notice", get: n => n.title,
+      html: n => `<div class="name">${isNew(n) ? '<span class="pill p-new">NEW</span> ' : ""}${esc(n.title || n.reference)}</div><div class="sub">${esc([n.reference, n.project_name].filter(Boolean).join(" · "))}</div>` },
+    { k: "type", label: "Type", get: n => n.type, html: n => esc(n.type || "—") },
+    { k: "published", label: "Published", get: n => n.published || "", html: n => fmtDate(n.published) },
+    { k: "deadline", label: "Deadline", get: n => n.deadline || "",
+      html: n => { const s = deadlineState(n); if (s === "none") return "—";
+        const d = daysLeft(n.deadline); const tag = s === "past" ? "Closed" : d === 0 ? "Today" : `${d} days left`;
+        return `${fmtDate(n.deadline)}<br><span class="pill p-${s}">${tag}</span>`; } },
+    { k: "source", label: "Source", get: n => srcNames(n).join(", "),
+      html: n => srcNames(n).map(s => `<span class="pill p-src">${esc(s)}</span>`).join("") },
+  ],
+  news: [
+    { k: "title", label: "Headline", get: n => n.title,
+      html: n => `<div class="name">${esc(n.title)}</div><div class="sub">${esc(n.summary || "")}</div>` },
+    { k: "publisher", label: "Publisher", get: n => n.publisher,
+      html: n => esc(n.publisher) + (n.also_reported_by?.length ? `<div class="sub">+${n.also_reported_by.length} more outlets</div>` : "") },
+    { k: "published", label: "Date", get: n => n.published || "", html: n => fmtDate(n.published) },
+    { k: "source", label: "Feed", get: n => n.source, html: n => `<span class="pill p-src">${esc(n.source.replace("Google News: ", ""))}</span>` },
+  ],
+};
+
+function setupFilters() {
+  const opts = (sel, first, values) => sel.innerHTML = `<option value="">${first}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  const uniq = (a) => [...new Set(a.filter(Boolean))].sort();
+  const f1 = $("#f1"), f2 = $("#f2");
+  f2.style.display = "";
+  if (state.tab === "projects") {
+    opts(f1, "All statuses", uniq(data.projects.map(p => p.status)));
+    opts(f2, "All funders", uniq(data.projects.flatMap(p => p.funders || [])));
+  } else if (state.tab === "notices") {
+    f1.innerHTML = `<option value="">All deadlines</option><option value="open">Open now</option><option value="soon">Closing within 7 days</option><option value="new">New (last 24h)</option><option value="past">Closed</option>`;
+    opts(f2, "All sources", uniq(data.notices.flatMap(srcNames)));
+  } else {
+    opts(f1, "All feeds", uniq(data.news.map(n => n.source)));
+    f2.style.display = "none";
+  }
+  f1.value = state.f1; f2.value = state.f2;
+}
+
+function filtered() {
+  const q = state.q.toLowerCase().trim();
+  let rows = data[state.tab].filter(r => {
+    if (q && !JSON.stringify(r).toLowerCase().includes(q)) return false;
+    if (state.tab === "projects") {
+      if (state.f1 && r.status !== state.f1) return false;
+      if (state.f2 && !(r.funders || []).includes(state.f2)) return false;
+    } else if (state.tab === "notices") {
+      const s = deadlineState(r);
+      if (state.f1 === "open" && !(s === "open" || s === "soon")) return false;
+      if (state.f1 === "new" && !isNew(r)) return false;
+      if (["soon", "past"].includes(state.f1) && s !== state.f1) return false;
+      if (state.f2 && !srcNames(r).includes(state.f2)) return false;
+    } else if (state.f1 && r.source !== state.f1) return false;
+    return true;
+  });
+  if (state.sort) {
+    const col = COLS[state.tab].find(c => c.k === state.sort);
+    rows = rows.slice().sort((a, b) => { const x = col.get(a), y = col.get(b);
+      const r = typeof x === "number" ? x - y : String(x).localeCompare(String(y)); return state.asc ? r : -r; });
+  }
+  return rows;
+}
+
+function renderStats() {
+  const m = data.meta, P = data.projects, N = data.notices;
+  const open = N.filter(n => ["open", "soon"].includes(deadlineState(n))).length;
+  const tiles = [
+    [P.length.toLocaleString(), `Unique projects${m.raw_records ? ` (from ${m.raw_records.projects.toLocaleString()} records)` : ""}`],
+    [P.filter(p => p.status === "Active").length.toLocaleString(), "Active projects"],
+    [money(m.total_commitment_usd), "Active + pipeline commitments"],
+    [open.toLocaleString(), "Tenders open now"],
+    [N.filter(isNew).length.toLocaleString(), "New tenders (24h)"],
+  ];
+  $("#stats").innerHTML = tiles.map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+  if (m.updated_at) $("#updated").textContent = `Last updated ${new Date(m.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.`;
+  $("#n-projects").textContent = P.length.toLocaleString();
+  $("#n-notices").textContent = N.length.toLocaleString();
+  $("#n-news").textContent = data.news.length.toLocaleString();
+  $("#srcs").innerHTML = (m.sources || []).map(s => `<span><b class="${s.ok ? "ok" : "bad"}">${s.ok ? "✓" : "✗"}</b> ${esc(s.source)}${s.ok ? ` — ${(s.projects||0)+(s.notices||0)+(s.news||0)} items` : " — failed"}</span>`).join("");
+}
+
+function sourceList(r) {
+  return `<ul>${(r.sources || []).map(s => `<li>${esc(s.source)}${s.funder ? ` (${esc(s.funder)})` : ""}${s.title ? `: ${esc(s.title)}` : ""} ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">open ↗</a>` : ""}</li>`).join("")}</ul>`;
+}
+
+function detailHTML(r) {
+  let rows, extra = "";
+  if (state.tab === "projects") {
+    rows = [["IDs", (r.ids || []).join(", ")], ["Status", r.status], ["Funders / reporters", (r.funders || []).join(", ")],
+      ["Implementers", (r.implementers || []).join(", ")], ["Sectors", (r.sectors || []).join(", ")],
+      ["Dates", `${fmtDate(r.start)} → ${fmtDate(r.end)}`], ["Commitment", money(r.commitment_usd)], ["Description", r.description]];
+    const tenders = data.notices.filter(n => n.project_ref === r.id);
+    extra = `<strong>Found in ${r.source_count} source record${r.source_count > 1 ? "s" : ""}:</strong>${sourceList(r)}` +
+      (tenders.length ? `<p><strong>Tenders for this project (${tenders.length}):</strong></p><ul>${tenders.slice(0, 15).map(n => `<li>${fmtDate(n.published)} — ${esc(n.type)}: <a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a></li>`).join("")}</ul>` : "");
+  } else if (state.tab === "notices") {
+    rows = [["Type", r.type], ["Reference", r.reference], ["Project", [r.project_name, r.project_ref].filter(Boolean).join(" — ")],
+      ["Method", r.method], ["Deadline", r.deadline ? `${fmtDate(r.deadline)} ${r.deadline_time || ""}` : ""],
+      ["Organization", r.organization], ["Funder", r.funder],
+      ["Contact", [r.contact?.name, r.contact?.email, r.contact?.phone].filter(Boolean).join(" · ")], ["Address", r.contact?.address],
+      ["First seen by tracker", fmtDate(r.first_seen)], ["Summary", r.description]];
+    extra = `<strong>Published on:</strong>${sourceList(r)}`;
+  } else {
+    rows = [["Summary", r.summary], ["Also reported by", (r.also_reported_by || []).join(", ")]];
+    extra = `<p><a href="${esc(r.url)}" target="_blank" rel="noopener">Read the article ↗</a></p>`;
+  }
+  const dl = rows.filter(([, v]) => v && v !== "—" && v !== "— → —").map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+  return `<tr class="detail"><td colspan="${COLS[state.tab].length}"><dl>${dl}</dl>${extra}</td></tr>`;
+}
+
+function render() {
+  const cols = COLS[state.tab];
+  $("#thead").innerHTML = "<tr>" + cols.map(c => `<th data-k="${c.k}" class="${state.sort === c.k ? "sorted" + (state.asc ? " asc" : "") : ""}" ${c.num ? 'style="text-align:right"' : ""}>${c.label}</th>`).join("") + "</tr>";
+  const rows = filtered();
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  state.page = Math.min(state.page, pages - 1);
+  const slice = rows.slice(state.page * PAGE, state.page * PAGE + PAGE);
+  const key = (r) => r.id || r.url;
+  $("#tbody").innerHTML = slice.length ? slice.map(r =>
+    `<tr class="row" data-id="${esc(key(r))}">` + cols.map(c => `<td class="${c.num ? "num" : ""}">${c.html(r)}</td>`).join("") + "</tr>" +
+    (state.open === key(r) ? detailHTML(r) : "")).join("")
+    : `<tr><td colspan="${cols.length}" class="empty">${data.projects.length ? "No results match your filters." : "No data yet. Run the “Scrape & deploy” workflow on the GitHub Actions tab."}</td></tr>`;
+  $("#pager").innerHTML = `<span>${rows.length.toLocaleString()} result${rows.length === 1 ? "" : "s"}</span>
+    <span>Page ${state.page + 1} of ${pages} <button class="btn" id="prev" ${state.page === 0 ? "disabled" : ""}>‹ Prev</button>
+    <button class="btn" id="next" ${state.page >= pages - 1 ? "disabled" : ""}>Next ›</button></span>`;
+  $("#prev").onclick = () => { state.page--; render(); };
+  $("#next").onclick = () => { state.page++; render(); };
+}
+
+function downloadCSV() {
+  const rows = filtered(); if (!rows.length) return;
+  const flat = (r) => Object.fromEntries(Object.entries(r).flatMap(([k, v]) =>
+    Array.isArray(v) ? [[k, v.map(x => typeof x === "object" ? (x.url || x.source || JSON.stringify(x)) : x).join("; ")]]
+    : v && typeof v === "object" ? Object.entries(v).map(([k2, v2]) => [`${k}_${k2}`, v2]) : [[k, v]]));
+  const recs = rows.map(flat); const keys = [...new Set(recs.flatMap(Object.keys))];
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = [keys.join(","), ...recs.map(r => keys.map(k => cell(r[k])).join(","))].join("\n");
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })), download: `somalia-${state.tab}-${today}.csv` });
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  Object.assign(state, { tab: t.dataset.tab, f1: "", f2: "", sort: t.dataset.tab === "projects" ? null : "published", asc: false, page: 0, open: null });
+  setupFilters(); render();
+});
+$("#q").oninput = (e) => { state.q = e.target.value; state.page = 0; render(); };
+$("#f1").onchange = (e) => { state.f1 = e.target.value; state.page = 0; render(); };
+$("#f2").onchange = (e) => { state.f2 = e.target.value; state.page = 0; render(); };
+$("#csv").onclick = downloadCSV;
+$("#thead").onclick = (e) => { const th = e.target.closest("th"); if (!th) return;
+  if (state.sort === th.dataset.k) state.asc = !state.asc; else { state.sort = th.dataset.k; state.asc = false; } render(); };
+$("#tbody").onclick = (e) => { if (e.target.closest("a")) return; const tr = e.target.closest("tr.row"); if (!tr) return;
+  state.open = state.open === tr.dataset.id ? null : tr.dataset.id; render(); };
+
+async function load(name, fallback) {
+  try { const r = await fetch(`data/${name}.json?v=${Date.now()}`); return r.ok ? await r.json() : fallback; } catch { return fallback; }
+}
+(async () => {
+  [data.projects, data.notices, data.news, data.meta] = await Promise.all([load("projects", []), load("notices", []), load("news", []), load("meta", {})]);
+  renderStats(); setupFilters(); render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{
+  "_help": "Turn sources on/off with \"enabled\". Add any RSS/Atom feed to sources.rss.feeds - use keywords to keep only Somalia items. kind = notices | news | auto.",
+  "defaults": {
+    "country_code": "SO",
+    "iso3": "SOM"
+  },
+  "sources": {
+    "worldbank": {
+      "enabled": true,
+      "notices": true
+    },
+    "iati": {
+      "_about": "1,000+ funders: AfDB, UNDP, UNICEF, WFP, FAO, IOM, EU, USAID, FCDO, Germany, Sweden, Norway, TIKA, NGOs...",
+      "enabled": true,
+      "status_codes": "1|2"
+    },
+    "rss": {
+      "enabled": true,
+      "feeds": [
+        {
+          "name": "AfDB procurement",
+          "url": "https://www.afdb.org/en/projects-and-operations/procurement.xml",
+          "kind": "notices",
+          "funder": "AfDB",
+          "keywords": ["somalia", "somalie", "somaliland", "puntland", "jubaland", "mogadishu", "hargeisa", "multinational - somalia"]
+        },
+        {
+          "name": "Google News: Somalia tenders",
+          "url": "https://news.google.com/rss/search?q=Somalia+(tender+OR+%22expression+of+interest%22+OR+procurement+OR+bid)&hl=en-US&gl=US&ceid=US:en",
+          "kind": "news",
+          "keywords": ["somali", "mogadishu", "puntland", "jubaland", "hargeisa"]
+        },
+        {
+          "name": "Google News: Somalia development projects",
+          "url": "https://news.google.com/rss/search?q=Somalia+(project+OR+programme)+(%22World+Bank%22+OR+AfDB+OR+UNDP+OR+%22European+Union%22+OR+USAID+OR+financing+OR+grant)&hl=en-US&gl=US&ceid=US:en",
+          "kind": "news",
+          "keywords": ["somali", "mogadishu", "puntland", "jubaland", "hargeisa"]
+        },
+        {
+          "name": "Google News: Somalia contracts & investment",
+          "url": "https://news.google.com/rss/search?q=Somalia+(%22contract+awarded%22+OR+%22signs+agreement%22+OR+investment+OR+construction)&hl=en-US&gl=US&ceid=US:en",
+          "kind": "news",
+          "keywords": ["somali", "mogadishu", "puntland", "jubaland", "hargeisa"]
+        }
+      ]
+    },
+    "reliefweb": {
+      "_about": "Optional. Needs a free approved appname saved as the RELIEFWEB_APPNAME repository secret.",
+      "enabled": true,
+      "consultancies_only": true
+    }
+  }
+}
