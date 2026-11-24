@@ -1,0 +1,58 @@
+name: Scrape & deploy
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6 hours (03:23, 09:23, 15:23, 21:23 Mogadishu time)
+  workflow_dispatch:          # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: scrape-deploy
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scrape all sources and merge duplicates
+        env:
+          RELIEFWEB_APPNAME: ${{ secrets.RELIEFWEB_APPNAME }}
+        run: python scraper/run.py || echo "::warning::Scrape failed - deploying previous data"
+
+      - name: Commit updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No changes in data."
+          else
+            git commit -m "Update Somalia data ($(date -u +'%Y-%m-%d %H:%M') UTC)"
+            git pull --rebase --autostash || true
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
