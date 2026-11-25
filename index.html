@@ -18,6 +18,7 @@
   .stat{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 2px 10px rgba(20,33,61,.08)}
   .stat .v{font-size:25px;font-weight:700}
   .stat .l{color:var(--muted);font-size:13px}
+  .stat.live{outline:2px solid var(--blue);outline-offset:-2px}
   .tabs{display:flex;gap:6px;margin:26px 0 12px;border-bottom:1px solid var(--line);overflow-x:auto}
   .tab{background:none;border:0;padding:10px 16px;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
   .tab.on{color:var(--blue-d);border-color:var(--blue)}
@@ -305,11 +306,11 @@ function renderStats() {
   const tiles = [
     [P.length.toLocaleString(), `Unique projects${m.raw_records ? ` (from ${m.raw_records.projects.toLocaleString()} records)` : ""}`],
     [P.filter(p => p.status === "Active").length.toLocaleString(), "Active projects"],
-    [money(m.total_commitment_usd), "Active + pipeline commitments"],
+    ["", "", "stat-filter"],  // filled by renderFilterTotal() on every filter change
     [open.toLocaleString(), "Tenders open now"],
     [N.filter(isNew).length.toLocaleString(), "New tenders (24h)"],
   ];
-  $("#stats").innerHTML = tiles.map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+  $("#stats").innerHTML = tiles.map(([v, l, id]) => `<div class="stat"${id ? ` id="${id}"` : ""}><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
   if (m.updated_at) $("#updated").textContent = `Last updated ${new Date(m.updated_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}.`;
   $("#n-projects").textContent = P.length.toLocaleString();
   $("#n-notices").textContent = N.length.toLocaleString();
@@ -351,6 +352,7 @@ function render() {
   buildHighlighter();
   const rows = filtered();
   renderSummary(rows.length);
+  renderFilterTotal(rows);
   saveToURL();
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   state.page = Math.min(state.page, pages - 1);
@@ -365,6 +367,26 @@ function render() {
     <button class="btn" id="next" ${state.page >= pages - 1 ? "disabled" : ""}>Next ›</button></span>`;
   $("#prev").onclick = () => { state.page--; render(); };
   $("#next").onclick = () => { state.page++; render(); };
+}
+
+/* Tile that follows the filters: total commitment of the matching projects,
+   or the number of matching tenders / news items on the other tabs. */
+function renderFilterTotal(rows) {
+  const tile = $("#stat-filter"); if (!tile) return;
+  const filteredView = !!(state.q.trim() || state.dfrom || state.dto || state.f1 || state.f2);
+  const scope = filteredView ? "matching your filters" : "(no filter)";
+  const n = rows.length.toLocaleString();
+  let value, label;
+  if (state.tab === "projects") {
+    const total = rows.reduce((s, p) => s + (p.commitment_usd || 0), 0);
+    value = total ? money(total) : "$0";
+    label = `Total commitment of ${n} project${rows.length === 1 ? "" : "s"} ${scope}`;
+  } else {
+    value = n;
+    label = `${state.tab === "notices" ? "Tenders & notices" : "News items"} ${scope}`;
+  }
+  tile.innerHTML = `<div class="v">${value}</div><div class="l">${label}</div>`;
+  tile.classList.toggle("live", filteredView);
 }
 
 function renderSummary(count) {
