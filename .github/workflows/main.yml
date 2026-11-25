@@ -17,12 +17,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scrape-and-deploy:
+  # Job 1: scrape, save the data, and package the website
+  scrape:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +51,18 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
+
+  # Job 2: publish the website. It starts only after job 1 has fully finished,
+  # which avoids GitHub's "No artifacts named github-pages were found" error.
+  deploy:
+    needs: scrape
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Wait a moment for the upload to register
+        run: sleep 15
 
       - id: deploy
         uses: actions/deploy-pages@v4
